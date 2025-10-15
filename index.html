@@ -104,12 +104,12 @@
                     <h3 class="text-lg font-semibold text-gray-700 mb-3">Template Attachments</h3>
                     <div class="flex space-x-2 mb-3">
                         
-                        <!-- Hidden File Input -->
-                        <input type="file" id="local-file-input" onchange="addAttachmentFromLocal()" class="hidden">
+                        <!-- Hidden File Input (now with MULTIPLE attribute) -->
+                        <input type="file" id="local-file-input" onchange="addAttachmentFromLocal()" class="hidden" multiple>
 
                         <!-- Button to trigger file selection -->
                         <button onclick="document.getElementById('local-file-input').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-150 text-sm flex-shrink-0">
-                            Select File
+                            Select File(s)
                         </button>
                     </div>
                     
@@ -287,31 +287,39 @@ If you have any questions about the screening process, please contact Bluetest c
             }
         }
 
-        // Function to handle local file selection
+        // Function to handle local file selection (now supports multiple files)
         function addAttachmentFromLocal() {
             const fileInput = document.getElementById('local-file-input');
-            if (fileInput.files.length === 0) {
-                // If the dialog was canceled without a file, do nothing.
+            const files = fileInput.files;
+
+            if (files.length === 0) {
                 return;
             }
-
-            // Get the file name from the selected file
-            const fileName = fileInput.files[0].name;
 
             const template = templates[activeTemplateId];
-            if (template.attachments.includes(fileName)) {
-                showToast(`Attachment "${fileName}" is already linked.`, true);
-                // Reset file input so the same file can be selected again
-                fileInput.value = '';
-                return;
+            let filesAddedCount = 0;
+
+            for (let i = 0; i < files.length; i++) {
+                const fileName = files[i].name;
+
+                if (template.attachments.includes(fileName)) {
+                    continue; // Skip duplicates
+                }
+
+                // Attach the file name (representing the link/reference)
+                template.attachments.push(fileName);
+                filesAddedCount++;
             }
 
-            template.attachments.push(fileName);
-            saveAllData();
-            renderAttachmentsList();
-            showToast(`File "${fileName}" linked.`);
+            if (filesAddedCount > 0) {
+                saveAllData();
+                renderAttachmentsList();
+                showToast(`${filesAddedCount} file(s) linked to template.`);
+            } else {
+                showToast("No new files were selected or all were duplicates.", true);
+            }
 
-            // Reset file input so the user can select another file (or the same one)
+            // Reset file input so the user can select the same file(s) again
             fileInput.value = '';
         }
 
