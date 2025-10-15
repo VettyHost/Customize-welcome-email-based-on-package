@@ -60,12 +60,26 @@
             <p class="text-gray-500 mt-1 mb-6">Create, edit, and manage your reusable email template content below.</p>
 
 
-            <!-- Template Selector -->
+            <!-- Template Selector/Renamer -->
             <div class="mb-8 p-4 bg-gray-50 rounded-xl border border-gray-200">
                 <label for="template-selector" class="text-sm font-semibold text-gray-700 block mb-2">Active Template to Edit:</label>
-                <select id="template-selector" onchange="handleTemplateSwitch(this.value)"
-                    class="block w-full px-4 py-3 text-base text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 cursor-pointer">
-                </select>
+                
+                <div id="template-selector-group" class="flex items-center space-x-2">
+                    <select id="template-selector" onchange="handleTemplateSwitch(this.value)"
+                        class="block w-full px-4 py-3 text-base text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 cursor-pointer">
+                    </select>
+                    
+                    <button id="rename-btn" onclick="toggleRenameMode(true)" 
+                        class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-3 rounded-lg shadow-sm transition duration-150 text-sm flex-shrink-0">
+                        Rename
+                    </button>
+                    
+                    <!-- This input replaces the selector during rename mode -->
+                    <input type="text" id="template-rename-input" 
+                           class="hidden w-full px-4 py-3 text-base text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                           onblur="renameTemplate()">
+                </div>
+                
                 <div class="mt-3 text-sm text-gray-600">Template ID: <span id="active-template-id" class="font-mono text-xs break-all text-gray-800">...</span></div>
             </div>
             
@@ -90,7 +104,7 @@
             <div class="mt-10 pt-6 border-t border-gray-200">
                 <h2 class="text-xl font-bold text-gray-800 mb-4">Package Assignment</h2>
                 <p class="text-sm text-gray-600 mb-4">
-                    Manually link or unlink packages to the active template. All unlinked packages default to the "Standard Welcome Template."
+                    Manually link or unlink packages to the active template. All unlinked packages default to the **"Default"** template.
                 </p>
 
                 <div class="flex flex-col md:flex-row gap-6">
@@ -173,7 +187,7 @@ If you have any questions about the screening process, please contact Bluetest c
             } else {
                 // Initial setup: Create one default template and map all packages to it
                 const defaultId = generateUniqueId();
-                templates[defaultId] = { name: 'Standard Welcome Template', title: defaultTemplateContent.title, body: defaultTemplateContent.body };
+                templates[defaultId] = { name: 'Default', title: defaultTemplateContent.title, body: defaultTemplateContent.body };
                 
                 for (const id in initialPackageNames) {
                     packages[id] = { name: initialPackageNames[id].name, templateId: defaultId };
@@ -226,7 +240,7 @@ If you have any questions about the screening process, please contact Bluetest c
         function togglePackageAssignment(pkgId, action) {
             const defaultTemplateId = Object.keys(templates).sort()[0]; // T001 is always the global fallback
             const pkg = packages[pkgId];
-
+            
             if (!pkg) {
                 showToast("Package data not found.", true);
                 return;
@@ -234,8 +248,8 @@ If you have any questions about the screening process, please contact Bluetest c
 
             let newTemplateId = null;
             let successMessage = '';
-            let isConfirm = true;
 
+            // --- LINK ACTION (Unassigned -> Active Template) ---
             if (action === 'link') {
                 if (pkg.templateId === activeTemplateId) {
                     showToast(`Package is already linked to ${templates[activeTemplateId].name}.`, true);
@@ -243,26 +257,39 @@ If you have any questions about the screening process, please contact Bluetest c
                 }
                 newTemplateId = activeTemplateId;
                 successMessage = `Package linked to ${templates[activeTemplateId].name}.`;
+                
+                // Immediate execution for linking (no confirmation needed)
+                pkg.templateId = newTemplateId;
+                saveAllData();
+                renderPackageAssignmentList();
+                showToast(successMessage);
+                return;
+
+            // --- UNLINK ACTION (Active Template -> Default Template) ---
             } else if (action === 'unlink') {
                 if (activeTemplateId === defaultTemplateId) {
-                    showToast(`Error: Cannot unlink packages from the **Standard Welcome Template**.`, true);
+                    showToast(`Error: Cannot unlink packages from the **Default** template.`, true);
                     return;
                 }
-                if (pkg.templateId !== activeTemplateId) {
-                    showToast(`Package is not currently linked to ${templates[activeTemplateId].name}.`, true);
-                    return;
-                }
-                newTemplateId = defaultTemplateId; // Reassign to default
-                successMessage = `Package unlinked and assigned to ${templates[defaultTemplateId].name}.`;
-            }
 
-            if (newTemplateId) {
-                // If linking, no confirmation needed. If unlinking, ask for confirmation.
-                if (action === 'link' || (action === 'unlink' && window.confirm(`Are you sure you want to UNLINK "${pkg.name}"? It will be reassigned to the default template.`))) {
-                     pkg.templateId = newTemplateId;
-                     saveAllData();
-                     renderPackageAssignmentList();
-                     showToast(successMessage);
+                if (pkg.templateId === activeTemplateId) {
+                    // This package is correctly linked to the active template, proceed to unlink.
+                    newTemplateId = defaultTemplateId; // Reassign to default
+                    successMessage = `Package unlinked and assigned to ${templates[defaultTemplateId].name}.`;
+
+                    // Confirmation and execution
+                    if (window.confirm(`Are you sure you want to UNLINK "${pkg.name}"? It will be reassigned to the default template.`)) {
+                         pkg.templateId = newTemplateId;
+                         saveAllData();
+                         renderPackageAssignmentList();
+                         showToast(successMessage);
+                    }
+                    return; // Exit function after attempted action
+                } else {
+                    // This state should not happen if the list is rendered correctly.
+                    showToast(`Error: Package is not linked to the current template. Please refresh.`, true);
+                    renderPackageAssignmentList(); 
+                    return;
                 }
             }
         }
@@ -317,6 +344,17 @@ If you have any questions about the screening process, please contact Bluetest c
         function loadTemplate(templateId) {
             const template = templates[templateId];
             
+            // Update the rename input field and hide it
+            const renameInput = document.getElementById('template-rename-input');
+            const renameBtn = document.getElementById('rename-btn');
+            const selector = document.getElementById('template-selector');
+            
+            // Ensure we are in selector mode when loading a template
+            toggleRenameMode(false); 
+            
+            // Set the value in both places
+            renameInput.value = template.name || template.title;
+            
             document.getElementById('email-title').value = template.name || template.title; 
             document.getElementById('email-body').value = template.body;
             document.getElementById('active-template-id').textContent = templateId;
@@ -325,24 +363,77 @@ If you have any questions about the screening process, please contact Bluetest c
 
             renderPackageAssignmentList(); // Refresh the assignment lists
         }
+        
+        // New Function: Toggles between selector and rename input
+        function toggleRenameMode(isRenaming) {
+            const selector = document.getElementById('template-selector');
+            const renameInput = document.getElementById('template-rename-input');
+            const renameBtn = document.getElementById('rename-btn');
+            
+            if (isRenaming) {
+                // Switch to input mode
+                selector.classList.add('hidden');
+                renameInput.classList.remove('hidden');
+                renameInput.value = templates[activeTemplateId].name; // Load current name
+                renameInput.focus();
+                renameInput.select();
+                renameBtn.textContent = 'Save Name';
+                renameBtn.onclick = renameTemplate;
+
+            } else {
+                // Switch back to selector mode
+                selector.classList.remove('hidden');
+                renameInput.classList.add('hidden');
+                renameBtn.textContent = 'Rename';
+                renameBtn.onclick = () => toggleRenameMode(true);
+            }
+        }
+
+        function renameTemplate() {
+            const newName = document.getElementById('template-rename-input').value.trim();
+            
+            if (!newName || newName === templates[activeTemplateId].name) {
+                toggleRenameMode(false);
+                return;
+            }
+
+            // Update template data
+            templates[activeTemplateId].name = newName;
+            
+            // Also update the email subject field to keep them synchronized
+            document.getElementById('email-title').value = newName;
+            
+            saveAllData();
+            populateTemplateSelector(); // Refresh selector options
+            showToast(`Template renamed to "${newName}".`);
+            toggleRenameMode(false);
+        }
+
 
         function saveChanges(showToastMsg = false) {
             if (!activeTemplateId) return;
 
-            const newName = document.getElementById('email-title').value || 'Untitled Template';
+            const newSubject = document.getElementById('email-title').value || 'Untitled Template';
             const newBody = document.getElementById('email-body').value;
+            const currentTemplateName = templates[activeTemplateId].name;
+
 
             if (templates[activeTemplateId]) {
-                templates[activeTemplateId].name = newName;
-                templates[activeTemplateId].title = newName; 
+                // If the user edits the subject title, update the template name as well
+                if (newSubject !== currentTemplateName) {
+                    templates[activeTemplateId].name = newSubject;
+                    populateTemplateSelector(); // Update the selector immediately
+                }
+                
+                templates[activeTemplateId].title = newSubject; 
                 templates[activeTemplateId].body = newBody;
                 saveAllData();
-                if (showToastMsg) showToast(`Template "${newName}" saved successfully!`);
-                populateTemplateSelector(); 
+                if (showToastMsg) showToast(`Template "${newSubject}" saved successfully!`);
             }
         }
         
         function handleTemplateSwitch(newTemplateId) {
+            // Save changes to the currently active template before switching
             saveChanges(false); 
             activeTemplateId = newTemplateId;
             loadTemplate(newTemplateId);
@@ -364,10 +455,8 @@ If you have any questions about the screening process, please contact Bluetest c
             loadTemplate(newId);
             showToast(`Template "${newName}" created.`);
 
-            // Focus and select the title field
-            const titleInput = document.getElementById('email-title');
-            titleInput.focus();
-            titleInput.select();
+            // Automatically switch to rename mode for the new template
+            toggleRenameMode(true);
         }
 
         function deleteActiveTemplate() {
@@ -376,7 +465,7 @@ If you have any questions about the screening process, please contact Bluetest c
                 return;
             }
 
-            const confirmDelete = window.confirm(`Are you sure you want to delete template "${templates[activeTemplateId].name}"? All assigned packages will be moved to the default template.`);
+            const confirmDelete = window.confirm(`Are you sure you want to delete template "${templates[activeTemplateId].name}"? All assigned packages will be moved to the Default template.`);
             if (!confirmDelete) return;
 
             const deletedId = activeTemplateId;
