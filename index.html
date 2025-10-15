@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Package-Specific Email Customization</title>
+    <title>Email Template Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -14,9 +14,16 @@
             color: #005A9C;
             padding-bottom: 8px;
         }
-        /* Ensures line breaks in the template strings are displayed in the textarea */
         .email-body-content {
             resize: none;
+        }
+        .package-item {
+            padding: 12px;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
     </style>
 </head>
@@ -35,24 +42,31 @@
         <!-- Email Customization Card (Single Pane) -->
         <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow-lg h-fit">
             
-            <!-- Header and Save Button -->
-            <div class="flex justify-between items-center mb-6">
-                <div>
-                    <h1 class="text-2xl font-bold text-gray-800">Customize Welcome Email by Package</h1>
-                    <p class="text-gray-500 mt-1">Select a package to view and edit its unique welcome message.</p>
+            <!-- Header and Action Buttons -->
+            <div class="flex flex-wrap justify-between items-center mb-6 gap-3">
+                <h1 class="text-2xl font-bold text-gray-800">Email Template Manager</h1>
+                <div class="flex space-x-2">
+                    <button onclick="createNewTemplate()" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-150 text-sm">
+                        + New Template
+                    </button>
+                    <button id="delete-template-btn" onclick="deleteActiveTemplate()" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-150 text-sm">
+                        Delete Template
+                    </button>
+                    <button onclick="saveChanges(true)" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-150 text-sm">
+                        Save Template
+                    </button>
                 </div>
-                <button onclick="saveChanges(true)" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-150">
-                    Save Changes
-                </button>
             </div>
+            <p class="text-gray-500 mt-1 mb-6">Create, edit, and manage your reusable email template content below.</p>
 
-            <!-- Package Selector -->
+
+            <!-- Template Selector -->
             <div class="mb-8 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                <label for="package-selector" class="text-sm font-semibold text-gray-700 block mb-2">Select Package Name to Edit:</label>
-                <select id="package-selector" onchange="handlePackageSwitch(this.value)"
+                <label for="template-selector" class="text-sm font-semibold text-gray-700 block mb-2">Active Template to Edit:</label>
+                <select id="template-selector" onchange="handleTemplateSwitch(this.value)"
                     class="block w-full px-4 py-3 text-base text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 cursor-pointer">
                 </select>
-                <div class="mt-3 text-sm text-gray-600">Active Package ID: <span id="active-package-id" class="font-mono text-xs break-all text-gray-800">...</span></div>
+                <div class="mt-3 text-sm text-gray-600">Template ID: <span id="active-template-id" class="font-mono text-xs break-all text-gray-800">...</span></div>
             </div>
             
             <!-- Editable Fields -->
@@ -60,14 +74,42 @@
                 
                 <!-- Title Field (Editable input) -->
                 <div>
-                    <label class="text-sm font-semibold text-gray-700 block mb-1">Title:</label>
+                    <label class="text-sm font-semibold text-gray-700 block mb-1">Email Subject Title:</label>
                     <input type="text" id="email-title" class="p-3 w-full bg-white border border-gray-300 rounded-lg text-gray-800 font-medium shadow-inner focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
 
                 <!-- Body Field (Editable textarea) -->
                 <div>
-                    <label class="text-sm font-semibold text-gray-700 block mb-1">Body (Customized Template Content):</label>
+                    <label class="text-sm font-semibold text-gray-700 block mb-1">Email Body Content:</label>
                     <textarea id="email-body" class="email-body-content p-4 w-full h-64 bg-white border border-gray-300 rounded-lg text-gray-800 shadow-inner overflow-y-auto focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">Use {{applicant_name}} for personalization.</p>
+                </div>
+            </div>
+
+            <!-- Package Assignment Management - Dual List with Buttons -->
+            <div class="mt-10 pt-6 border-t border-gray-200">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Package Assignment</h2>
+                <p class="text-sm text-gray-600 mb-4">
+                    Manually link or unlink packages to the active template. All unlinked packages default to the "Standard Welcome Template."
+                </p>
+
+                <div class="flex flex-col md:flex-row gap-6">
+                    <!-- Unassigned Packages List -->
+                    <div class="md:w-1/2">
+                        <h3 class="font-semibold text-gray-700 mb-2">Unassigned Packages</h3>
+                        <div id="unassigned-packages-list" 
+                             class="max-h-80 overflow-y-auto p-3 bg-gray-50 rounded-lg border border-gray-300 space-y-2">
+                            <!-- Content will be rendered here -->
+                        </div>
+                    </div>
+                    <!-- Packages Assigned to Current Template List -->
+                    <div class="md:w-1/2">
+                        <h3 class="font-semibold text-gray-700 mb-2">Packages Linked to Current Template</h3>
+                        <div id="assigned-packages-list" 
+                             class="max-h-80 overflow-y-auto p-3 bg-gray-100 rounded-lg border border-gray-300 space-y-2">
+                            <!-- Content will be rendered here -->
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -80,178 +122,78 @@
     </div>
 
     <script>
-        // --- Global Data Stores and Constants ---
-        let currentPackageId = '';
+        // --- Global Data Stores ---
+        let activeTemplateId = '';
+        let templates = {};
+        let packages = {};
+        let templateCounter = 1; 
 
-        // Initial default structure for all packages
-        const initialPackageData = {
-            '6862631bb1f61ea810e0fb524': { 
-                name: 'ADP Fingerprint', 
-                title: 'Bluetest screening invitation - (Fingerprint Required)', 
-                body: `Hi {{applicant_name}},
-
-**YOUR SCREENING INVITATION**
-You have been invited by Bluetest Client to initiate your background screening process.
-You will be asked to provide Vetty with the necessary information to conduct a background screening on behalf of Bluetest client.
-
-**PACKAGE DETAILS: ADP FINGERPRINT**
-This package requires a physical fingerprinting appointment. A link to schedule your appointment will be available after you accept this invitation. Please bring a valid photo ID.
-
-**NEXT STEPS**
-Please click the link below to accept the invitation and begin your screening process.
-
-**SUPPORT & QUESTIONS**
-If you have any questions about the screening process, please contact Bluetest client for further details.` 
-            },
-            '66cdc1f849d72b50a3f7be33': { 
-                name: 'Add And Edit', 
-                title: 'Bluetest screening invitation - (Review & Edit)', 
-                body: `Hi {{applicant_name}},
-
-**YOUR SCREENING INVITATION**
-You have been invited by Bluetest Client to initiate your background screening process.
-You will be asked to provide Vetty with the necessary information to conduct a background screening on behalf of Bluetest client.
-
-**PACKAGE DETAILS: ADD AND EDIT**
-This package allows a **48-hour window** to review and edit your submission details after initial entry. Please ensure all information is accurate before the deadline.
-
-**NEXT STEPS**
-Please click the link below to accept the invitation and begin your screening process.
-
-**SUPPORT & QUESTIONS**
-If you have any questions about the screening process, please contact Bluetest client for further details.` 
-            },
-            '650851b0fbd3d487d4e67aa50': { 
-                name: 'All OHS Checks', 
-                title: 'Bluetest screening invitation - (OHS Compliance)', 
-                body: `Hi {{applicant_name}},
-
-**YOUR SCREENING INVITATION**
-You have been invited by Bluetest Client to initiate your background screening process.
-You will be asked to provide Vetty with the necessary information to conduct a background screening on behalf of Bluetest client.
-
-**PACKAGE DETAILS: OHS CHECKS**
-Your screening includes compliance checks for Occupational Health and Safety (OHS). Please pay close attention to the required OHS forms in the next step.
-
-**NEXT STEPS**
-Please click the link below to accept the invitation and begin your screening process.
-
-**SUPPORT & QUESTIONS**
-If you have any questions about the screening process, please contact Bluetest client for further details.` 
-            },
-            '64a86ce44121b4497fd4286f5': { 
-                name: 'All Checks', 
-                title: 'Bluetest screening invitation - (Standard Check)', 
-                body: `Hi {{applicant_name}},
-
-**YOUR SCREENING INVITATION**
-You have been invited by Bluetest Client to initiate your background screening process.
-You will be asked to provide Vetty with the necessary information to conduct a background screening on behalf of Bluetest client.
-
-**PACKAGE DETAILS: STANDARD**
-You are registered for a standard, comprehensive background check package.
-
-**NEXT STEPS**
-Please click the link below to accept the invitation and begin your screening process.
-
-**SUPPORT & QUESTIONS**
-If you have any questions about the screening process, please contact Bluetest client for further details.` 
-            },
-            '64a7a1b1fafb428e4e72a31': { 
-                name: 'All Verification Checks', 
-                title: 'Bluetest screening invitation - (Verification Required)', 
-                body: `Hi {{applicant_name}},
-
-**YOUR SCREENING INVITATION**
-You have been invited by Bluetest Client to initiate your background screening process.
-You will be asked to provide Vetty with the necessary information to conduct a background screening on behalf of Bluetest client.
-
-**PACKAGE DETAILS: VERIFICATION**
-This package requires identity verification via document upload. Please have your official documents ready before starting the process.
-
-**NEXT STEPS**
-Please click the link below to accept the invitation and begin your screening process.
-
-**SUPPORT & QUESTIONS**
-If you have any questions about the screening process, please contact Bluetest client for further details.` 
-            },
-            '66c0eed3bbfb8fbb1c08158': { 
-                name: 'Aug28 Cc', 
-                title: 'Bluetest screening invitation', 
-                body: `Hi {{applicant_name}},
-
-**YOUR SCREENING INVITATION**
-You have been invited by Bluetest Client to initiate your background screening process.
-You will be asked to provide Vetty with the necessary information to conduct a background screening on behalf of Bluetest client.
-
-**PACKAGE DETAILS: AUG28 CC**
-This is the Aug28 Cc package. Customize this section with specific requirements for this package.
-
-**NEXT STEPS**
-Please click the link below to accept the invitation and begin your screening process.
-
-**SUPPORT & QUESTIONS**
-If you have any questions about the screening process, please contact Bluetest client for further details.` 
-            },
-            '6666c0fdf3ac7e1b8e393b3': { 
-                name: 'Auto PAA with Colorado Caps', 
-                title: 'Bluetest screening invitation', 
-                body: `Hi {{applicant_name}},
-
-**YOUR SCREENING INVITATION**
-You have been invited by Bluetest Client to initiate your background screening process.
-You will be asked to provide Vetty with the necessary information to conduct a background screening on behalf of Bluetest client.
-
-**PACKAGE DETAILS: COLORADO CAPS**
-This package includes specific regulatory checks for Colorado candidates. Please read the consent forms carefully.
-
-**NEXT STEPS**
-Please click the link below to accept the invitation and begin your screening process.
-
-**SUPPORT & QUESTIONS**
-If you have any questions about the screening process, please contact Bluetest client for further details.` 
-            },
-            '65d72cb8c25491f3c25e871': { 
-                name: 'AutoPAA Dynamic Package', 
-                title: 'Bluetest screening invitation', 
-                body: `Hi {{applicant_name}},
-
-**YOUR SCREENING INVITATION**
-You have been invited by Bluetest Client to initiate your background screening process.
-You will be asked to provide Vetty with the necessary information to conduct a background screening on behalf of Bluetest client.
-
-**PACKAGE DETAILS: DYNAMIC**
-This package dynamically adapts based on your location and role. Ensure your personal details are up-to-date.
-
-**NEXT STEPS**
-Please click the link below to accept the invitation and begin your screening process.
-
-**SUPPORT & QUESTIONS**
-If you have any questions about the screening process, please contact Bluetest client for further details.` 
-            },
+        // --- Initial Package Data (Only used for initialization, not assignment) ---
+        const initialPackageNames = {
+            '6862631bb1f61ea810e0fb524': { name: 'ADP Fingerprint' },
+            '66cdc1f849d72b50a3f7be33': { name: 'Add And Edit' },
+            '650851b0fbd3d487d4e67aa50': { name: 'All OHS Checks' },
+            '64a86ce44121b4497fd4286f5': { name: 'All Checks' },
+            '64a7a1b1fafb428e4e72a31': { name: 'All Verification Checks' },
+            '66c0eed3bbfb8fbb1c08158': { name: 'Aug28 Cc' },
+            '6666c0fdf3ac7e1b8e393b3': { name: 'Auto PAA with Colorado Caps' },
+            '65d72cb8c25491f3c25e871': { name: 'AutoPAA Dynamic Package' },
         };
 
-        // --- 2. Persistence and Initialization ---
-        function loadData() {
-            const storedData = localStorage.getItem('packageCustomizations');
-            // Merge stored data with initial data to ensure all packages are present
-            const loadedData = storedData ? JSON.parse(storedData) : {};
-            return { ...initialPackageData, ...loadedData };
+        const defaultTemplateContent = {
+            title: 'Bluetest Client Background Screening Invitation',
+            body: `Hi {{applicant_name}},
+
+**YOUR SCREENING INVITATION**
+You have been invited by Bluetest Client to initiate your background screening process.
+You will be asked to provide Vetty with the necessary information to conduct a background screening on behalf of Bluetest client.
+
+**NEXT STEPS**
+Please click the link below to accept the invitation and begin your screening process.
+
+**SUPPORT & QUESTIONS**
+If you have any questions about the screening process, please contact Bluetest client for further details.`
+        };
+
+        // --- 1. Persistence and Initialization ---
+
+        function generateUniqueId() {
+            return 'T' + String(templateCounter++).padStart(3, '0');
         }
 
-        function saveData(data) {
-            // Only store the data that has been customized (to keep storage clean, although not strictly necessary here)
-            // For simplicity in this demo, we'll store everything currently loaded.
-            localStorage.setItem('packageCustomizations', JSON.stringify(data));
+        function initializeData() {
+            const storedTemplates = JSON.parse(localStorage.getItem('emailTemplates'));
+            const storedPackages = JSON.parse(localStorage.getItem('packageAssignments'));
+            const storedCounter = localStorage.getItem('templateCounter');
+
+            if (storedTemplates && Object.keys(storedTemplates).length > 0 && storedPackages) {
+                templates = storedTemplates;
+                packages = storedPackages;
+                templateCounter = storedCounter ? parseInt(storedCounter) : Object.keys(templates).length + 1;
+            } else {
+                // Initial setup: Create one default template and map all packages to it
+                const defaultId = generateUniqueId();
+                templates[defaultId] = { name: 'Standard Welcome Template', title: defaultTemplateContent.title, body: defaultTemplateContent.body };
+                
+                for (const id in initialPackageNames) {
+                    packages[id] = { name: initialPackageNames[id].name, templateId: defaultId };
+                }
+                saveAllData();
+            }
         }
 
-        let packageCustomizations = loadData();
+        function saveAllData() {
+            localStorage.setItem('emailTemplates', JSON.stringify(templates));
+            localStorage.setItem('packageAssignments', JSON.stringify(packages));
+            localStorage.setItem('templateCounter', templateCounter);
+        }
 
-        // --- 3. UI Helper Functions ---
+        // --- 2. UI Helper Functions ---
 
-        function showToast(message) {
+        function showToast(message, isError = false) {
             const toast = document.getElementById('save-toast');
             toast.textContent = message;
+            toast.className = `fixed bottom-5 right-5 text-white px-6 py-3 rounded-lg shadow-xl transition-opacity duration-300 z-50 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
             toast.classList.remove('opacity-0');
             toast.classList.add('opacity-100');
             setTimeout(() => {
@@ -260,67 +202,212 @@ If you have any questions about the screening process, please contact Bluetest c
             }, 3000);
         }
 
-        function populatePackageSelector() {
-            const selector = document.getElementById('package-selector');
+        function populateTemplateSelector() {
+            const selector = document.getElementById('template-selector');
             selector.innerHTML = '';
             
-            const packageIds = Object.keys(packageCustomizations).sort();
+            const templateIds = Object.keys(templates).sort();
 
-            packageIds.forEach(id => {
+            templateIds.forEach(id => {
                 const option = document.createElement('option');
                 option.value = id;
-                // Display only the package name in the dropdown
-                option.textContent = packageCustomizations[id].name;
+                option.textContent = templates[id].name;
                 selector.appendChild(option);
             });
-            // Set initial selection
-            currentPackageId = packageIds[0];
-            selector.value = currentPackageId;
-        }
-
-        // --- 4. Package Editing Functions ---
-
-        function loadPackage(packageId) {
-            const pkg = packageCustomizations[packageId];
             
-            document.getElementById('email-title').value = pkg.title;
-            document.getElementById('email-body').value = pkg.body;
-            // Display the full Package ID below the selector
-            document.getElementById('active-package-id').textContent = packageId;
+            if (!activeTemplateId && templateIds.length > 0) {
+                activeTemplateId = templateIds[0];
+            }
+            selector.value = activeTemplateId;
         }
+        
+        // --- 3. Package Assignment Logic (Button-Based) ---
 
-        function saveChanges(showToast = false) {
-            if (!currentPackageId) return;
+        function togglePackageAssignment(pkgId, action) {
+            const defaultTemplateId = Object.keys(templates).sort()[0]; // T001 is always the global fallback
+            const pkg = packages[pkgId];
 
-            const newTitle = document.getElementById('email-title').value;
-            const newBody = document.getElementById('email-body').value;
+            if (!pkg) {
+                showToast("Package data not found.", true);
+                return;
+            }
 
-            // Update the in-memory data
-            if (packageCustomizations[currentPackageId]) {
-                packageCustomizations[currentPackageId].title = newTitle;
-                packageCustomizations[currentPackageId].body = newBody;
-                saveData(packageCustomizations);
-                if (showToast) showToast('Changes saved successfully!');
+            let newTemplateId = null;
+            let successMessage = '';
+            let isConfirm = true;
+
+            if (action === 'link') {
+                if (pkg.templateId === activeTemplateId) {
+                    showToast(`Package is already linked to ${templates[activeTemplateId].name}.`, true);
+                    return;
+                }
+                newTemplateId = activeTemplateId;
+                successMessage = `Package linked to ${templates[activeTemplateId].name}.`;
+            } else if (action === 'unlink') {
+                if (activeTemplateId === defaultTemplateId) {
+                    showToast(`Error: Cannot unlink packages from the **Standard Welcome Template**.`, true);
+                    return;
+                }
+                if (pkg.templateId !== activeTemplateId) {
+                    showToast(`Package is not currently linked to ${templates[activeTemplateId].name}.`, true);
+                    return;
+                }
+                newTemplateId = defaultTemplateId; // Reassign to default
+                successMessage = `Package unlinked and assigned to ${templates[defaultTemplateId].name}.`;
+            }
+
+            if (newTemplateId) {
+                // If linking, no confirmation needed. If unlinking, ask for confirmation.
+                if (action === 'link' || (action === 'unlink' && window.confirm(`Are you sure you want to UNLINK "${pkg.name}"? It will be reassigned to the default template.`))) {
+                     pkg.templateId = newTemplateId;
+                     saveAllData();
+                     renderPackageAssignmentList();
+                     showToast(successMessage);
+                }
             }
         }
 
-        function handlePackageSwitch(newPackageId) {
-            // 1. Auto-Save changes for the previously active package
-            saveChanges(false); 
+        function renderPackageAssignmentList() {
+            const unassignedListEl = document.getElementById('unassigned-packages-list');
+            const assignedListEl = document.getElementById('assigned-packages-list');
+            unassignedListEl.innerHTML = '';
+            assignedListEl.innerHTML = '';
+            
+            const packageIds = Object.keys(packages).sort((a, b) => packages[a].name.localeCompare(packages[b].name));
+            
+            packageIds.forEach(pkgId => {
+                const pkg = packages[pkgId];
+                const isAssigned = pkg.templateId === activeTemplateId;
+                
+                const itemDiv = document.createElement('div');
+                itemDiv.className = `package-item ${isAssigned ? 'bg-blue-100' : 'bg-white'} border border-gray-300`;
 
-            // 2. Update current ID and load the new package
-            currentPackageId = newPackageId;
-            loadPackage(newPackageId);
+                itemDiv.innerHTML = `
+                    <div>
+                        <span class="font-medium text-gray-800">${pkg.name}</span>
+                        <span class="text-xs text-gray-500 block">ID: ${pkgId.substring(0, 8)}...</span>
+                    </div>
+                    <div>
+                        ${isAssigned 
+                            ? `<button onclick="togglePackageAssignment('${pkgId}', 'unlink')" class="bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-semibold py-1 px-2 rounded-lg transition duration-150">Unlink</button>`
+                            : `<button onclick="togglePackageAssignment('${pkgId}', 'link')" class="bg-green-500 hover:bg-green-600 text-white text-xs font-semibold py-1 px-2 rounded-lg transition duration-150">Link</button>`
+                        }
+                    </div>
+                `;
+                
+                if (isAssigned) {
+                    assignedListEl.appendChild(itemDiv);
+                } else {
+                    unassignedListEl.appendChild(itemDiv);
+                }
+            });
+            
+            // Add messages for empty lists
+            if (unassignedListEl.children.length === 0) {
+                unassignedListEl.innerHTML = '<p class="text-sm text-gray-500 p-2 text-center">All packages are linked to a template.</p>';
+            }
+            if (assignedListEl.children.length === 0) {
+                assignedListEl.innerHTML = '<p class="text-sm text-gray-500 p-2 text-center">No packages are linked to this template.</p>';
+            }
         }
+
+
+        // --- 4. Template and Package Logic ---
+
+        function loadTemplate(templateId) {
+            const template = templates[templateId];
+            
+            document.getElementById('email-title').value = template.name || template.title; 
+            document.getElementById('email-body').value = template.body;
+            document.getElementById('active-template-id').textContent = templateId;
+
+            document.getElementById('delete-template-btn').disabled = Object.keys(templates).length <= 1;
+
+            renderPackageAssignmentList(); // Refresh the assignment lists
+        }
+
+        function saveChanges(showToastMsg = false) {
+            if (!activeTemplateId) return;
+
+            const newName = document.getElementById('email-title').value || 'Untitled Template';
+            const newBody = document.getElementById('email-body').value;
+
+            if (templates[activeTemplateId]) {
+                templates[activeTemplateId].name = newName;
+                templates[activeTemplateId].title = newName; 
+                templates[activeTemplateId].body = newBody;
+                saveAllData();
+                if (showToastMsg) showToast(`Template "${newName}" saved successfully!`);
+                populateTemplateSelector(); 
+            }
+        }
+        
+        function handleTemplateSwitch(newTemplateId) {
+            saveChanges(false); 
+            activeTemplateId = newTemplateId;
+            loadTemplate(newTemplateId);
+        }
+
+        function createNewTemplate() {
+            saveChanges(false);
+            const newId = generateUniqueId();
+            const newName = `New Template ${templateCounter - 1}`;
+            templates[newId] = { 
+                name: newName, 
+                title: `${newName} Subject`,
+                body: "Hi {{applicant_name}},\n\nThis is a brand new template. Edit the title and body, and save."
+            };
+            saveAllData();
+            
+            activeTemplateId = newId;
+            populateTemplateSelector();
+            loadTemplate(newId);
+            showToast(`Template "${newName}" created.`);
+
+            // Focus and select the title field
+            const titleInput = document.getElementById('email-title');
+            titleInput.focus();
+            titleInput.select();
+        }
+
+        function deleteActiveTemplate() {
+            if (Object.keys(templates).length <= 1) {
+                showToast("Cannot delete the last remaining template.", true);
+                return;
+            }
+
+            const confirmDelete = window.confirm(`Are you sure you want to delete template "${templates[activeTemplateId].name}"? All assigned packages will be moved to the default template.`);
+            if (!confirmDelete) return;
+
+            const deletedId = activeTemplateId;
+            const remainingIds = Object.keys(templates).filter(id => id !== deletedId);
+            const reassignmentId = remainingIds[0]; // The default/fallback template
+
+            // 1. Reassign packages
+            for (const pkgId in packages) {
+                if (packages[pkgId].templateId === deletedId) {
+                    packages[pkgId].templateId = reassignmentId;
+                }
+            }
+            
+            delete templates[deletedId];
+
+            activeTemplateId = reassignmentId;
+            saveAllData();
+            populateTemplateSelector();
+            loadTemplate(reassignmentId);
+            showToast(`Template deleted. Packages reassigned to "${templates[reassignmentId].name}".`);
+        }
+
 
         // --- 5. Initialization ---
         document.addEventListener('DOMContentLoaded', initializeApp);
 
         function initializeApp() {
-            populatePackageSelector();
-            // Load the first package in the list
-            if (currentPackageId) {
-                loadPackage(currentPackageId);
+            initializeData();
+            populateTemplateSelector();
+            if (activeTemplateId) {
+                loadTemplate(activeTemplateId);
             }
         }
     </script>
